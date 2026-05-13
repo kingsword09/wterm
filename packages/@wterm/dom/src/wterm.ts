@@ -215,6 +215,10 @@ export class WTerm {
       this.element.scrollTop = 0;
     }
 
+    this.input?.setImeAnchor(
+      this._container.querySelector<HTMLElement>(".term-cursor"),
+    );
+
     const title = this.bridge.getTitle();
     if (title !== null && this.onTitle) {
       this.onTitle(title);

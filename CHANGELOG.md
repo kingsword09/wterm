@@ -1,8 +1,23 @@
 # Changelog
 
-## 0.3.0
+## 0.3.1
 
 <!-- release:start -->
+
+### Bug Fixes
+
+- **Wide character cell widths** — the built-in core now marks CJK/fullwidth
+  cells as width 2 with width 0 spacer cells, preserves wide-cell pairs during
+  overwrite, erase, insert, delete, wrap, and resize operations, and DOM
+  rendering skips spacer cells while keeping the cursor aligned.
+
+### Contributors
+
+- @kingsword09
+
+<!-- release:end -->
+
+## 0.3.0
 
 ### New Features
 
@@ -21,8 +36,6 @@
 ### Contributors
 
 - @ctate
-
-<!-- release:end -->
 
 ## 0.2.1
 

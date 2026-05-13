@@ -3,6 +3,12 @@ export interface CellData {
   fg: number;
   bg: number;
   flags: number;
+  /**
+   * Display width in terminal columns.
+   * `0` marks the spacer cell attached to a wide character, `1` is normal,
+   * and `2` is a wide/fullwidth character.
+   */
+  width?: 0 | 1 | 2;
   /** Resolved 24-bit foreground color (0xRRGGBB). Present when the core provides true color. */
   fgRgb?: number;
   /** Resolved 24-bit background color (0xRRGGBB). Present when the core provides true color. */

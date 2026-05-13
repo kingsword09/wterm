@@ -177,6 +177,7 @@ pub const Terminal = struct {
                 while (c < old_cols) : (c += 1) {
                     self.grid.cells[r][c] = Cell{};
                 }
+                self.sanitizeWideCellsInRowLimit(r, cols, self.blankCell());
             }
         }
 
@@ -185,6 +186,9 @@ pub const Terminal = struct {
             if (!self.using_alt_screen and self.scrollback != null) {
                 var r: u16 = rows;
                 while (r < old_rows) : (r += 1) {
+                    if (cols < old_cols) {
+                        self.sanitizeWideCellsInRowLimit(r, cols, self.blankCell());
+                    }
                     self.scrollback.?.push(&self.grid.cells[r], if (cols < old_cols) cols else old_cols);
                 }
             }
@@ -245,10 +249,30 @@ pub const Terminal = struct {
     // -- Print --
 
     fn printChar(self: *Terminal, codepoint: u21) void {
+        const cell_width = codepointWidth(codepoint);
+
+        if (cell_width == 0) return;
+        if (cell_width == 2 and self.cols < 2) return;
+
         if (self.wrap_pending) {
             self.cursor_col = 0;
             self.doLinefeed();
             self.wrap_pending = false;
+        }
+
+        if (cell_width == 2 and self.cursor_col == self.cols - 1) {
+            if (self.auto_wrap) {
+                self.cursor_col = 0;
+                self.doLinefeed();
+            } else {
+                return;
+            }
+        }
+
+        const blank = self.blankCell();
+        self.clearWideCellAt(self.cursor_row, self.cursor_col, blank);
+        if (cell_width == 2) {
+            self.clearWideCellAt(self.cursor_row, self.cursor_col + 1, blank);
         }
 
         self.grid.setCell(self.cursor_row, self.cursor_col, Cell{
@@ -256,12 +280,126 @@ pub const Terminal = struct {
             .fg = self.current_fg,
             .bg = self.current_bg,
             .flags = self.current_flags,
+            .width = cell_width,
         });
 
-        if (self.cursor_col < self.cols - 1) {
-            self.cursor_col += 1;
+        if (cell_width == 2) {
+            self.grid.setCell(self.cursor_row, self.cursor_col + 1, Cell{
+                .char = ' ',
+                .fg = self.current_fg,
+                .bg = self.current_bg,
+                .flags = self.current_flags,
+                .width = cell_mod.WIDTH_SPACER,
+            });
+        }
+
+        if (self.cursor_col + cell_width < self.cols) {
+            self.cursor_col += cell_width;
         } else if (self.auto_wrap) {
+            self.cursor_col = self.cols - 1;
             self.wrap_pending = true;
+        }
+    }
+
+    fn codepointWidth(codepoint: u21) u8 {
+        if (codepoint == 0) return 0;
+
+        if (codepoint < 0x20 or (codepoint >= 0x7f and codepoint < 0xa0)) return 0;
+
+        return if (isWideCodepoint(codepoint)) cell_mod.WIDTH_WIDE else cell_mod.WIDTH_NARROW;
+    }
+
+    fn isWideCodepoint(codepoint: u21) bool {
+        return codepoint >= 0x1100 and
+            (codepoint <= 0x115f or
+                codepoint == 0x2329 or
+                codepoint == 0x232a or
+                (codepoint >= 0x2e80 and codepoint <= 0xa4cf and codepoint != 0x303f) or
+                (codepoint >= 0xac00 and codepoint <= 0xd7a3) or
+                (codepoint >= 0xf900 and codepoint <= 0xfaff) or
+                (codepoint >= 0xfe10 and codepoint <= 0xfe19) or
+                (codepoint >= 0xfe30 and codepoint <= 0xfe6f) or
+                (codepoint >= 0xff00 and codepoint <= 0xff60) or
+                (codepoint >= 0xffe0 and codepoint <= 0xffe6) or
+                (codepoint >= 0x1f300 and codepoint <= 0x1f64f) or
+                (codepoint >= 0x1f900 and codepoint <= 0x1f9ff) or
+                (codepoint >= 0x20000 and codepoint <= 0x3fffd));
+    }
+
+    fn clearWideCellAt(self: *Terminal, row: u16, col: u16, blank: Cell) void {
+        if (row >= self.rows or col >= self.cols) return;
+
+        const cell = self.grid.cells[row][col];
+
+        if (cell.width == cell_mod.WIDTH_SPACER) {
+            self.grid.cells[row][col] = blank;
+            if (col > 0 and self.grid.cells[row][col - 1].width == cell_mod.WIDTH_WIDE) {
+                self.grid.cells[row][col - 1] = blank;
+            }
+            self.grid.dirty[row] = 1;
+            return;
+        }
+
+        if (cell.width == cell_mod.WIDTH_WIDE) {
+            self.grid.cells[row][col] = blank;
+            if (col + 1 < self.cols and self.grid.cells[row][col + 1].width == cell_mod.WIDTH_SPACER) {
+                self.grid.cells[row][col + 1] = blank;
+            }
+            self.grid.dirty[row] = 1;
+        }
+    }
+
+    fn clearRangePreservingWide(self: *Terminal, row: u16, start_col: u16, end_col: u16, blank: Cell) void {
+        if (row >= self.rows) return;
+
+        var start = if (start_col > self.cols) self.cols else start_col;
+        var end = if (end_col > self.cols) self.cols else end_col;
+
+        if (start >= end) return;
+
+        if (start > 0 and start < self.cols and
+            self.grid.cells[row][start].width == cell_mod.WIDTH_SPACER and
+            self.grid.cells[row][start - 1].width == cell_mod.WIDTH_WIDE)
+        {
+            start -= 1;
+        }
+
+        if (end < self.cols and end > 0 and
+            self.grid.cells[row][end - 1].width == cell_mod.WIDTH_WIDE and
+            self.grid.cells[row][end].width == cell_mod.WIDTH_SPACER)
+        {
+            end += 1;
+        }
+
+        self.grid.clearRangeAs(row, start, end, blank);
+    }
+
+    fn sanitizeWideCellsInRow(self: *Terminal, row: u16, blank: Cell) void {
+        self.sanitizeWideCellsInRowLimit(row, self.cols, blank);
+    }
+
+    fn sanitizeWideCellsInRowLimit(self: *Terminal, row: u16, limit: u16, blank: Cell) void {
+        if (row >= grid_mod.MAX_ROWS) return;
+
+        var col: u16 = 0;
+        const end = if (limit > grid_mod.MAX_COLS) grid_mod.MAX_COLS else limit;
+        while (col < end) {
+            const width = self.grid.cells[row][col].width;
+
+            if (width == cell_mod.WIDTH_WIDE) {
+                if (col + 1 < end and self.grid.cells[row][col + 1].width == cell_mod.WIDTH_SPACER) {
+                    col += 2;
+                    continue;
+                }
+
+                self.grid.cells[row][col] = blank;
+                self.grid.dirty[row] = 1;
+            } else if (width == cell_mod.WIDTH_SPACER) {
+                self.grid.cells[row][col] = blank;
+                self.grid.dirty[row] = 1;
+            }
+
+            col += 1;
         }
     }
 
@@ -605,7 +743,7 @@ pub const Terminal = struct {
         const blank = self.blankCell();
         switch (mode) {
             0 => {
-                self.grid.clearRangeAs(self.cursor_row, self.cursor_col, self.cols, blank);
+                self.clearRangePreservingWide(self.cursor_row, self.cursor_col, self.cols, blank);
                 var r = self.cursor_row + 1;
                 while (r < self.rows) : (r += 1) {
                     self.grid.clearRowAs(r, blank);
@@ -616,7 +754,7 @@ pub const Terminal = struct {
                 while (r < self.cursor_row) : (r += 1) {
                     self.grid.clearRowAs(r, blank);
                 }
-                self.grid.clearRangeAs(self.cursor_row, 0, self.cursor_col + 1, blank);
+                self.clearRangePreservingWide(self.cursor_row, 0, self.cursor_col + 1, blank);
             },
             2, 3 => {
                 var r: u16 = 0;
@@ -634,8 +772,8 @@ pub const Terminal = struct {
     fn eraseInLine(self: *Terminal, mode: u16) void {
         const blank = self.blankCell();
         switch (mode) {
-            0 => self.grid.clearRangeAs(self.cursor_row, self.cursor_col, self.cols, blank),
-            1 => self.grid.clearRangeAs(self.cursor_row, 0, self.cursor_col + 1, blank),
+            0 => self.clearRangePreservingWide(self.cursor_row, self.cursor_col, self.cols, blank),
+            1 => self.clearRangePreservingWide(self.cursor_row, 0, self.cursor_col + 1, blank),
             2 => self.grid.clearRowAs(self.cursor_row, blank),
             else => {},
         }
@@ -644,7 +782,7 @@ pub const Terminal = struct {
     fn eraseChars(self: *Terminal, n: u16) void {
         const count = if (n == 0) 1 else n;
         const end = if (self.cursor_col + count > self.cols) self.cols else self.cursor_col + count;
-        self.grid.clearRangeAs(self.cursor_row, self.cursor_col, end, self.blankCell());
+        self.clearRangePreservingWide(self.cursor_row, self.cursor_col, end, self.blankCell());
     }
 
     // -- Insert / delete --
@@ -660,8 +798,12 @@ pub const Terminal = struct {
     }
 
     fn deleteChars(self: *Terminal, n: u16) void {
-        const count = if (n == 0) 1 else n;
         const blank = self.blankCell();
+        const requested = if (n == 0) 1 else n;
+        const remaining = self.cols - self.cursor_col;
+        const count = if (requested > remaining) remaining else requested;
+        if (count == 0) return;
+
         var col = self.cursor_col;
         while (col + count < self.cols) : (col += 1) {
             self.grid.cells[self.cursor_row][col] = self.grid.cells[self.cursor_row][col + count];
@@ -669,14 +811,19 @@ pub const Terminal = struct {
         while (col < self.cols) : (col += 1) {
             self.grid.cells[self.cursor_row][col] = blank;
         }
+        self.sanitizeWideCellsInRow(self.cursor_row, blank);
         self.grid.dirty[self.cursor_row] = 1;
     }
 
     fn insertBlanks(self: *Terminal, n: u16) void {
-        const count = if (n == 0) 1 else n;
         const blank = self.blankCell();
+        const requested = if (n == 0) 1 else n;
+        const remaining = self.cols - self.cursor_col;
+        const count = if (requested > remaining) remaining else requested;
+        if (count == 0) return;
+
         if (self.cursor_col + count >= self.cols) {
-            self.grid.clearRangeAs(self.cursor_row, self.cursor_col, self.cols, blank);
+            self.clearRangePreservingWide(self.cursor_row, self.cursor_col, self.cols, blank);
             return;
         }
         var col = self.cols - 1;
@@ -689,6 +836,7 @@ pub const Terminal = struct {
         while (c < end) : (c += 1) {
             self.grid.cells[self.cursor_row][c] = blank;
         }
+        self.sanitizeWideCellsInRow(self.cursor_row, blank);
         self.grid.dirty[self.cursor_row] = 1;
     }
 
@@ -916,6 +1064,133 @@ test "linefeed and carriage return" {
     try @import("std").testing.expectEqual(@as(u32, 'C'), t.grid.getCell(1, 0).char);
     try @import("std").testing.expectEqual(@as(u16, 1), t.cursor_row);
     try @import("std").testing.expectEqual(@as(u16, 2), t.cursor_col);
+}
+
+test "wide characters occupy two cells" {
+    const testing = @import("std").testing;
+    var t = Terminal.init(80, 24);
+
+    t.write("提交");
+
+    try testing.expectEqual(@as(u32, '提'), t.grid.getCell(0, 0).char);
+    try testing.expectEqual(cell_mod.WIDTH_WIDE, t.grid.getCell(0, 0).width);
+    try testing.expectEqual(@as(u32, ' '), t.grid.getCell(0, 1).char);
+    try testing.expectEqual(cell_mod.WIDTH_SPACER, t.grid.getCell(0, 1).width);
+    try testing.expectEqual(@as(u32, '交'), t.grid.getCell(0, 2).char);
+    try testing.expectEqual(cell_mod.WIDTH_WIDE, t.grid.getCell(0, 2).width);
+    try testing.expectEqual(cell_mod.WIDTH_SPACER, t.grid.getCell(0, 3).width);
+    try testing.expectEqual(@as(u16, 4), t.cursor_col);
+}
+
+test "wide characters wrap before the final column" {
+    const testing = @import("std").testing;
+    var t = Terminal.init(3, 3);
+
+    t.write("AB你");
+
+    try testing.expectEqual(@as(u32, 'A'), t.grid.getCell(0, 0).char);
+    try testing.expectEqual(@as(u32, 'B'), t.grid.getCell(0, 1).char);
+    try testing.expectEqual(@as(u32, ' '), t.grid.getCell(0, 2).char);
+    try testing.expectEqual(@as(u32, '你'), t.grid.getCell(1, 0).char);
+    try testing.expectEqual(cell_mod.WIDTH_WIDE, t.grid.getCell(1, 0).width);
+    try testing.expectEqual(cell_mod.WIDTH_SPACER, t.grid.getCell(1, 1).width);
+    try testing.expectEqual(@as(u16, 1), t.cursor_row);
+    try testing.expectEqual(@as(u16, 2), t.cursor_col);
+}
+
+test "wide characters at the line end leave wrap pending on the final column" {
+    const testing = @import("std").testing;
+    var t = Terminal.init(3, 3);
+
+    t.write("A你");
+
+    try testing.expectEqual(@as(u32, 'A'), t.grid.getCell(0, 0).char);
+    try testing.expectEqual(@as(u32, '你'), t.grid.getCell(0, 1).char);
+    try testing.expectEqual(cell_mod.WIDTH_WIDE, t.grid.getCell(0, 1).width);
+    try testing.expectEqual(cell_mod.WIDTH_SPACER, t.grid.getCell(0, 2).width);
+    try testing.expectEqual(@as(u16, 0), t.cursor_row);
+    try testing.expectEqual(@as(u16, 2), t.cursor_col);
+    try testing.expectEqual(true, t.wrap_pending);
+
+    t.write("B");
+
+    try testing.expectEqual(@as(u32, 'B'), t.grid.getCell(1, 0).char);
+    try testing.expectEqual(@as(u16, 1), t.cursor_row);
+    try testing.expectEqual(@as(u16, 1), t.cursor_col);
+}
+
+test "overwriting wide character halves clears the full character" {
+    const testing = @import("std").testing;
+    var t = Terminal.init(8, 3);
+
+    t.write("你好");
+    t.write("\rA");
+
+    try testing.expectEqual(@as(u32, 'A'), t.grid.getCell(0, 0).char);
+    try testing.expectEqual(cell_mod.WIDTH_NARROW, t.grid.getCell(0, 0).width);
+    try testing.expectEqual(@as(u32, ' '), t.grid.getCell(0, 1).char);
+    try testing.expectEqual(cell_mod.WIDTH_NARROW, t.grid.getCell(0, 1).width);
+    try testing.expectEqual(@as(u32, '好'), t.grid.getCell(0, 2).char);
+    try testing.expectEqual(cell_mod.WIDTH_WIDE, t.grid.getCell(0, 2).width);
+
+    t.write("\x1b[1;4HB");
+
+    try testing.expectEqual(@as(u32, ' '), t.grid.getCell(0, 2).char);
+    try testing.expectEqual(cell_mod.WIDTH_NARROW, t.grid.getCell(0, 2).width);
+    try testing.expectEqual(@as(u32, 'B'), t.grid.getCell(0, 3).char);
+    try testing.expectEqual(cell_mod.WIDTH_NARROW, t.grid.getCell(0, 3).width);
+}
+
+test "erase expands partial wide character ranges" {
+    const testing = @import("std").testing;
+    var t = Terminal.init(8, 3);
+
+    t.write("你AB");
+    t.write("\x1b[1;2H\x1b[K");
+
+    try testing.expectEqual(@as(u32, ' '), t.grid.getCell(0, 0).char);
+    try testing.expectEqual(cell_mod.WIDTH_NARROW, t.grid.getCell(0, 0).width);
+    try testing.expectEqual(@as(u32, ' '), t.grid.getCell(0, 1).char);
+    try testing.expectEqual(cell_mod.WIDTH_NARROW, t.grid.getCell(0, 1).width);
+    try testing.expectEqual(@as(u32, ' '), t.grid.getCell(0, 2).char);
+    try testing.expectEqual(@as(u32, ' '), t.grid.getCell(0, 3).char);
+}
+
+test "delete and insert sanitize orphan wide cells" {
+    const testing = @import("std").testing;
+    var t = Terminal.init(8, 3);
+
+    t.write("你AB");
+    t.write("\x1b[1;2H\x1b[P");
+
+    try testing.expectEqual(@as(u32, ' '), t.grid.getCell(0, 0).char);
+    try testing.expectEqual(cell_mod.WIDTH_NARROW, t.grid.getCell(0, 0).width);
+    try testing.expectEqual(@as(u32, 'A'), t.grid.getCell(0, 1).char);
+    try testing.expectEqual(@as(u32, 'B'), t.grid.getCell(0, 2).char);
+
+    var t2 = Terminal.init(8, 3);
+    t2.write("A你B");
+    t2.write("\x1b[1;3H\x1b[@");
+
+    try testing.expectEqual(@as(u32, 'A'), t2.grid.getCell(0, 0).char);
+    try testing.expectEqual(@as(u32, ' '), t2.grid.getCell(0, 1).char);
+    try testing.expectEqual(cell_mod.WIDTH_NARROW, t2.grid.getCell(0, 1).width);
+    try testing.expectEqual(@as(u32, ' '), t2.grid.getCell(0, 2).char);
+    try testing.expectEqual(cell_mod.WIDTH_NARROW, t2.grid.getCell(0, 2).width);
+    try testing.expectEqual(@as(u32, 'B'), t2.grid.getCell(0, 4).char);
+}
+
+test "resize shrinking columns sanitizes truncated wide characters" {
+    const testing = @import("std").testing;
+    var t = Terminal.init(4, 3);
+
+    t.write("A你B");
+    t.resize(2, 3);
+
+    try testing.expectEqual(@as(u32, 'A'), t.grid.getCell(0, 0).char);
+    try testing.expectEqual(cell_mod.WIDTH_NARROW, t.grid.getCell(0, 0).width);
+    try testing.expectEqual(@as(u32, ' '), t.grid.getCell(0, 1).char);
+    try testing.expectEqual(cell_mod.WIDTH_NARROW, t.grid.getCell(0, 1).width);
 }
 
 test "cursor movement CSI" {

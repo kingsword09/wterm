@@ -42,6 +42,42 @@ describe("WasmBridge", () => {
       expect(bridge.getCell(0, 1).char).toBe(105); // 'i'
     });
 
+    it("exposes wide character cell widths", () => {
+      bridge.writeString("提交");
+
+      expect(bridge.getCell(0, 0)).toMatchObject({
+        char: "提".codePointAt(0),
+        width: 2,
+      });
+      expect(bridge.getCell(0, 1)).toMatchObject({
+        char: 32,
+        width: 0,
+      });
+      expect(bridge.getCell(0, 2)).toMatchObject({
+        char: "交".codePointAt(0),
+        width: 2,
+      });
+      expect(bridge.getCell(0, 3)).toMatchObject({
+        char: 32,
+        width: 0,
+      });
+      expect(bridge.getCursor().col).toBe(4);
+    });
+
+    it("wraps wide characters before the final column", () => {
+      bridge.resize(3, 3);
+      bridge.writeString("AB你");
+
+      expect(bridge.getCell(0, 0).char).toBe(65);
+      expect(bridge.getCell(0, 1).char).toBe(66);
+      expect(bridge.getCell(0, 2).char).toBe(32);
+      expect(bridge.getCell(1, 0)).toMatchObject({
+        char: "你".codePointAt(0),
+        width: 2,
+      });
+      expect(bridge.getCell(1, 1).width).toBe(0);
+    });
+
     it("writes to correct position after cursor movement", () => {
       bridge.writeString("AB\r\nCD");
       expect(bridge.getCell(0, 0).char).toBe(65); // 'A'

@@ -26,6 +26,10 @@ npm install @wterm/dom
 
 The WASM binary is embedded in the package — no extra setup required. To serve it separately instead, pass `wasmUrl`.
 
+The renderer respects terminal cell widths from `@wterm/core`, including
+wide/fullwidth characters and their zero-width spacer cells, so CJK text and
+emoji stay aligned with PTY applications that use terminal column widths.
+
 ## API
 
 ### `WTerm`

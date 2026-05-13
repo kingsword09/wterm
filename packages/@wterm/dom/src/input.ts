@@ -47,12 +47,13 @@ export class InputHandler {
   private onData: (data: string) => void;
   private getBridge: () => TerminalCore | null;
   private composing = false;
+  private suppressedInputValue = "";
 
   private _onKeyDown: (e: KeyboardEvent) => void;
   private _onPaste: (e: ClipboardEvent) => void;
   private _onCompositionStart: () => void;
   private _onCompositionEnd: (e: CompositionEvent) => void;
-  private _onInput: () => void;
+  private _onInput: (e: InputEvent) => void;
   private _onFocus: () => void;
   private _onBlur: () => void;
 
@@ -75,10 +76,10 @@ export class InputHandler {
     this.textarea.setAttribute("aria-hidden", "true");
     const s = this.textarea.style;
     s.position = "absolute";
-    s.left = "-9999px";
+    s.left = "0px";
     s.top = "0";
-    s.width = "1px";
-    s.height = "1px";
+    s.width = "1ch";
+    s.height = "var(--term-row-height)";
     s.opacity = "0";
     s.overflow = "hidden";
     s.border = "0";
@@ -119,6 +120,20 @@ export class InputHandler {
     this.textarea.focus({ preventScroll: true });
   }
 
+  setImeAnchor(anchor: HTMLElement | null): void {
+    if (!anchor) return;
+
+    const rootRect = this.element.getBoundingClientRect();
+    const anchorRect = anchor.getBoundingClientRect();
+    const left = anchorRect.left - rootRect.left + this.element.scrollLeft;
+    const top = anchorRect.top - rootRect.top + this.element.scrollTop;
+
+    this.textarea.style.left = `${Math.max(0, Math.round(left))}px`;
+    this.textarea.style.top = `${Math.max(0, Math.round(top))}px`;
+    this.textarea.style.width = `${Math.max(1, Math.ceil(anchorRect.width))}px`;
+    this.textarea.style.height = `${Math.max(1, Math.ceil(anchorRect.height))}px`;
+  }
+
   destroy(): void {
     this.textarea.removeEventListener("keydown", this._onKeyDown);
     this.textarea.removeEventListener("paste", this._onPaste as EventListener);
@@ -138,7 +153,7 @@ export class InputHandler {
   }
 
   private handleKeyDown(e: KeyboardEvent): void {
-    if (this.composing) return;
+    if (this.composing || isCompositionKeyDown(e)) return;
 
     if ((e.metaKey || e.ctrlKey) && e.key === "c") {
       const sel = window.getSelection();
@@ -165,6 +180,10 @@ export class InputHandler {
       return;
     }
 
+    if (isPlainPrintableKey(e)) {
+      return;
+    }
+
     e.preventDefault();
     const seq = this.keyToSequence(e);
     if (seq) this.onData(seq);
@@ -188,17 +207,34 @@ export class InputHandler {
 
   private handleCompositionStart(): void {
     this.composing = true;
+    this.suppressedInputValue = "";
   }
 
   private handleCompositionEnd(e: CompositionEvent): void {
     this.composing = false;
-    if (e.data) this.onData(e.data);
+    const value = e.data || this.textarea.value;
+    if (value) {
+      this.onData(value);
+      this.suppressedInputValue = value;
+    }
     this.textarea.value = "";
   }
 
-  private handleInput(): void {
-    if (this.composing) return;
+  private handleInput(e: InputEvent): void {
+    if (this.composing || isCompositionPreeditInput(e)) return;
+
     const value = this.textarea.value;
+
+    if (this.suppressedInputValue) {
+      if (!value || value === this.suppressedInputValue) {
+        this.suppressedInputValue = "";
+        this.textarea.value = "";
+        return;
+      }
+
+      this.suppressedInputValue = "";
+    }
+
     if (value) {
       this.onData(value);
       this.textarea.value = "";
@@ -236,4 +272,26 @@ export class InputHandler {
 
     return null;
   }
+}
+
+function isCompositionKeyDown(event: KeyboardEvent): boolean {
+  return (
+    event.isComposing ||
+    event.key === "Process" ||
+    event.key === "Dead" ||
+    event.keyCode === 229 ||
+    event.which === 229
+  );
+}
+
+function isPlainPrintableKey(event: KeyboardEvent): boolean {
+  if (event.altKey || event.ctrlKey || event.metaKey) {
+    return false;
+  }
+
+  return event.key.length === 1;
+}
+
+function isCompositionPreeditInput(event: InputEvent): boolean {
+  return event.inputType === "insertCompositionText" || event.isComposing;
 }

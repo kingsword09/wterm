@@ -21,6 +21,7 @@ wterm ("dub-term") renders to the DOM — native text selection, copy/paste, fin
 - **Pluggable cores** — built-in lightweight Zig core (~12 KB) or opt-in [libghostty](packages/@wterm/ghostty) backend (~400 KB) for full VT compliance
 - **Zig + WASM core** — VT100/VT220/xterm escape sequence parser compiled to a ~12 KB `.wasm` binary (release build)
 - **DOM rendering** — native text selection, clipboard, browser find, and screen reader support
+- **CJK/fullwidth alignment** — wide characters use explicit width/spacer cells so DOM rendering and cursor movement stay aligned
 - **Dirty-row tracking** — only touched rows are re-rendered each frame via `requestAnimationFrame`
 - **Themes** — CSS custom properties with built-in Default, Solarized Dark, Monokai, and Light themes
 - **Alternate screen buffer** — `vim`, `less`, `htop`, and similar apps work correctly

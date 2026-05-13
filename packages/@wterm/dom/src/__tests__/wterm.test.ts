@@ -236,11 +236,12 @@ describe("WTerm", () => {
       await term.init();
 
       const textarea = element.querySelector("textarea")!;
+      textarea.value = "a";
       textarea.dispatchEvent(
-        new KeyboardEvent("keydown", {
-          key: "a",
+        new InputEvent("input", {
+          data: "a",
+          inputType: "insertText",
           bubbles: true,
-          cancelable: true,
         }),
       );
 
@@ -253,11 +254,12 @@ describe("WTerm", () => {
       await term.init();
 
       const textarea = element.querySelector("textarea")!;
+      textarea.value = "a";
       textarea.dispatchEvent(
-        new KeyboardEvent("keydown", {
-          key: "a",
+        new InputEvent("input", {
+          data: "a",
+          inputType: "insertText",
           bubbles: true,
-          cancelable: true,
         }),
       );
 

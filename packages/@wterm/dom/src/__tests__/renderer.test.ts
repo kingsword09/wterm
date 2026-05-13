@@ -29,6 +29,14 @@ function makeCell(char: string, fg = 256, bg = 256, flags = 0): CellData {
   return { char: char.codePointAt(0)!, fg, bg, flags };
 }
 
+function makeWideCell(char: string): CellData {
+  return { char: char.codePointAt(0)!, fg: 256, bg: 256, flags: 0, width: 2 };
+}
+
+function makeSpacerCell(): CellData {
+  return { char: 32, fg: 256, bg: 256, flags: 0, width: 0 };
+}
+
 describe("Renderer", () => {
   let container: HTMLDivElement;
 
@@ -64,6 +72,28 @@ describe("Renderer", () => {
       const text = container.textContent;
       expect(text).toContain("H");
       expect(text).toContain("i");
+    });
+
+    it("skips wide-character spacer cells", () => {
+      const grid = [[makeWideCell("提"), makeSpacerCell(), makeWideCell("交"), makeSpacerCell()]];
+      const bridge = createMockBridge(4, 1, grid);
+      const renderer = new Renderer(container);
+      renderer.render(bridge as any);
+
+      expect(container.textContent).toBe("提交");
+    });
+
+    it("keeps the cursor on a wide character across its spacer cell", () => {
+      const grid = [[makeWideCell("提"), makeSpacerCell(), makeCell("A")]];
+      const bridge = createMockBridge(3, 1, grid);
+      bridge.getCursor = () => ({ row: 0, col: 1, visible: true });
+      const renderer = new Renderer(container);
+      renderer.render(bridge as any);
+
+      const cursor = container.querySelector(".term-cursor");
+      expect(cursor).not.toBeNull();
+      expect(cursor?.textContent).toBe("提");
+      expect(container.textContent).toBe("提A");
     });
 
     it("applies cursor class to cursor position", () => {

@@ -51,6 +51,10 @@ const cursor = bridge.getCursor();
 // → { row: 1, col: 13, visible: true }
 ```
 
+`CellData.width` follows terminal column semantics: `2` is the leading cell for
+CJK/fullwidth characters, `0` is its spacer cell, and `1` is a normal cell.
+Custom renderers should skip spacer cells and advance by the reported width.
+
 ## WebSocketTransport
 
 Connect to a PTY backend over WebSocket with automatic reconnection and send buffering.

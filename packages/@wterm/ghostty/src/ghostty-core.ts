@@ -51,6 +51,7 @@ const BLANK_CELL: CellData = {
   fg: DEFAULT_COLOR,
   bg: DEFAULT_COLOR,
   flags: 0,
+  width: 1,
 };
 
 export interface GhosttyOptions {
@@ -151,6 +152,7 @@ export class GhosttyCore implements TerminalCore {
       fg: DEFAULT_COLOR,
       bg: DEFAULT_COLOR,
       flags: cell.flags,
+      width: normalizeCellWidth(cell.width),
     };
     if (cell.colorFlags & 1)
       result.fgRgb = packRgb(cell.fgR, cell.fgG, cell.fgB);
@@ -262,6 +264,7 @@ export class GhosttyCore implements TerminalCore {
       fg: DEFAULT_COLOR,
       bg: DEFAULT_COLOR,
       flags: cell.flags,
+      width: normalizeCellWidth(cell.width),
       fgRgb: packRgb(cell.fgR, cell.fgG, cell.fgB),
       bgRgb: packRgb(cell.bgR, cell.bgG, cell.bgB),
     };
@@ -316,4 +319,8 @@ export class GhosttyCore implements TerminalCore {
     );
     this._viewportStale = false;
   }
+}
+
+function normalizeCellWidth(width: number): 0 | 1 | 2 {
+  return width === 0 || width === 2 ? width : 1;
 }

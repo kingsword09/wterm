@@ -457,7 +457,7 @@ When no URL is provided, the ~12 KB WASM binary is decoded from a base64 string 
     </tr>
     <tr>
       <td><code>getCell(row, col): CellData</code></td>
-      <td>Get cell data at a grid position</td>
+      <td>Get cell data at a grid position, including terminal column width</td>
     </tr>
     <tr>
       <td><code>getCursor(): CursorState</code></td>
@@ -518,6 +518,7 @@ interface CellData {
   fg: number;     // Foreground color index (256 = default)
   bg: number;     // Background color index (256 = default)
   flags: number;  // Style flags (bold, italic, underline, etc.)
+  width?: 0 | 1 | 2; // 0 = wide spacer, 1 = normal, 2 = wide/fullwidth
 }
 
 interface CursorState {

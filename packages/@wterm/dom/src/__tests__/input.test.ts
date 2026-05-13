@@ -54,6 +54,12 @@ describe("InputHandler", () => {
       expect(ta.getAttribute("autocomplete")).toBe("off");
       expect(ta.getAttribute("spellcheck")).toBe("false");
     });
+
+    it("keeps the textarea near the terminal instead of offscreen", () => {
+      const ta = getTextarea();
+      expect(ta.style.left).toBe("0px");
+      expect(ta.style.top).toBe("0px");
+    });
   });
 
   describe("focus", () => {
@@ -62,6 +68,43 @@ describe("InputHandler", () => {
       const focusSpy = vi.spyOn(ta, "focus");
       handler.focus();
       expect(focusSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe("IME anchor", () => {
+    it("positions the textarea on the cursor anchor", () => {
+      const ta = getTextarea();
+      const anchor = document.createElement("span");
+
+      vi.spyOn(container, "getBoundingClientRect").mockReturnValue({
+        left: 10,
+        top: 20,
+        width: 800,
+        height: 400,
+        right: 810,
+        bottom: 420,
+        x: 10,
+        y: 20,
+        toJSON: () => ({}),
+      });
+      vi.spyOn(anchor, "getBoundingClientRect").mockReturnValue({
+        left: 42,
+        top: 54,
+        width: 16,
+        height: 18,
+        right: 58,
+        bottom: 72,
+        x: 42,
+        y: 54,
+        toJSON: () => ({}),
+      });
+
+      handler.setImeAnchor(anchor);
+
+      expect(ta.style.left).toBe("32px");
+      expect(ta.style.top).toBe("34px");
+      expect(ta.style.width).toBe("16px");
+      expect(ta.style.height).toBe("18px");
     });
   });
 
@@ -184,10 +227,56 @@ describe("InputHandler", () => {
   });
 
   describe("printable characters", () => {
-    it("sends single printable characters", () => {
+    it("sends printable characters from textarea input", () => {
       const ta = getTextarea();
       ta.dispatchEvent(createKeyboardEvent("x"));
+      expect(received).not.toContain("x");
+
+      ta.value = "x";
+      ta.dispatchEvent(
+        new InputEvent("input", {
+          bubbles: true,
+          data: "x",
+          inputType: "insertText",
+        }),
+      );
+
       expect(received).toContain("x");
+    });
+
+    it("suppresses IME preedit text and sends only the committed composition", () => {
+      const ta = getTextarea();
+
+      ta.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
+      ta.value = "t";
+      ta.dispatchEvent(
+        new InputEvent("input", {
+          bubbles: true,
+          data: "t",
+          inputType: "insertCompositionText",
+          isComposing: true,
+        }),
+      );
+
+      expect(received).toEqual([]);
+
+      ta.dispatchEvent(
+        new CompositionEvent("compositionend", {
+          bubbles: true,
+          data: "提",
+        }),
+      );
+      ta.value = "提";
+      ta.dispatchEvent(
+        new InputEvent("input", {
+          bubbles: true,
+          data: "提",
+          inputType: "insertText",
+        }),
+      );
+
+      expect(received).toEqual(["提"]);
+      expect(ta.value).toBe("");
     });
   });
 

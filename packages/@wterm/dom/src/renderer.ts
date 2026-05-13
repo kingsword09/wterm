@@ -1,4 +1,5 @@
 import type { TerminalCore } from "@wterm/core";
+import type { CellData } from "@wterm/core";
 
 const DEFAULT_COLOR = 256;
 const FLAG_BOLD = 0x01;
@@ -87,6 +88,22 @@ function appendRun(parent: HTMLElement, text: string, style: string): void {
   if (style) span.style.cssText = style;
   span.textContent = text;
   parent.appendChild(span);
+}
+
+type RenderCell = CellData;
+type RenderRunCell = {
+  col: number;
+  text: string;
+  width: 1 | 2;
+};
+
+function cellWidth(cell: RenderCell | null | undefined): 0 | 1 | 2 {
+  return cell?.width === 0 || cell?.width === 2 ? cell.width : 1;
+}
+
+function visibleCellText(cell: RenderCell, inBounds: boolean): string {
+  if (!inBounds || cellWidth(cell) === 0 || cell.char < 32) return " ";
+  return String.fromCodePoint(cell.char);
 }
 
 function escapeHTML(text: string): string {
@@ -238,33 +255,34 @@ export class Renderer {
 
   private _buildRowContent(
     rowEl: HTMLDivElement,
-    getCell: (col: number) => {
-      char: number;
-      fg: number;
-      bg: number;
-      flags: number;
-      fgRgb?: number;
-      bgRgb?: number;
-    },
+    getCell: (col: number) => RenderCell,
     lineLen: number,
     cursorCol: number,
     rowIndex: number,
   ): void {
     let html = "";
     let runStyle = "";
-    let runText = "";
+    let runCells: RenderRunCell[] = [];
     let runStart = 0;
 
     const flushRun = (endCol: number) => {
-      if (!runText) return;
+      if (runCells.length === 0) return;
+      const runText = runCells.map((cell) => cell.text).join("");
       const escaped = escapeHTML(runText);
+      const cursorCellIndex = runCells.findIndex(
+        (cell) => cursorCol >= cell.col && cursorCol < cell.col + cell.width,
+      );
 
-      if (cursorCol >= runStart && cursorCol < endCol) {
-        const offset = cursorCol - runStart;
-        const chars = [...runText];
-        const before = chars.slice(0, offset).join("");
-        const cursorChar = chars[offset] || " ";
-        const after = chars.slice(offset + 1).join("");
+      if (cursorCellIndex >= 0) {
+        const before = runCells
+          .slice(0, cursorCellIndex)
+          .map((cell) => cell.text)
+          .join("");
+        const cursorChar = runCells[cursorCellIndex]?.text || " ";
+        const after = runCells
+          .slice(cursorCellIndex + 1)
+          .map((cell) => cell.text)
+          .join("");
 
         if (before) {
           html += runStyle
@@ -284,12 +302,21 @@ export class Renderer {
           ? `<span style="${runStyle}">${escaped}</span>`
           : `<span>${escaped}</span>`;
       }
+
+      runCells = [];
+      runStart = endCol;
     };
 
     for (let col = 0; col < this.cols; col++) {
       const cell = getCell(col);
       const inBounds = col < lineLen;
       const cp = inBounds ? cell.char : 0;
+      const width = inBounds ? cellWidth(cell) : 1;
+
+      if (width === 0) {
+        flushRun(col);
+        continue;
+      }
 
       if (inBounds && cp >= 0x2580 && cp <= 0x259f) {
         flushRun(col);
@@ -307,10 +334,10 @@ export class Renderer {
         html += `<span class="${cls}" style="background:${bg};${dim}"></span>`;
 
         runStyle = "";
-        runText = "";
+        runCells = [];
         runStart = col + 1;
       } else {
-        const ch = inBounds && cp >= 32 ? String.fromCodePoint(cp) : " ";
+        const ch = visibleCellText(cell, inBounds);
         const style = inBounds
           ? buildCellStyle(cell.fg, cell.bg, cell.flags, cell.fgRgb, cell.bgRgb)
           : "";
@@ -318,10 +345,10 @@ export class Renderer {
         if (style !== runStyle) {
           flushRun(col);
           runStyle = style;
-          runText = ch;
+          runCells = [{ col, text: ch, width }];
           runStart = col;
         } else {
-          runText += ch;
+          runCells.push({ col, text: ch, width });
         }
       }
     }

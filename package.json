@@ -18,7 +18,9 @@
     "test": "turbo run test",
     "test:e2e": "playwright test --config e2e/playwright.config.ts",
     "test:e2e:ui": "playwright test --config e2e/playwright.config.ts --ui",
-    "type-check": "turbo run type-check"
+    "type-check": "turbo run type-check",
+    "pack:aitty-wterm": "node scripts/publish-aitty-wterm.mjs --dry-run",
+    "publish:aitty-wterm": "node scripts/publish-aitty-wterm.mjs --publish"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",

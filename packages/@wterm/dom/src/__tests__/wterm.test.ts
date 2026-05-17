@@ -174,6 +174,30 @@ describe("WTerm", () => {
       expect(mockBridge.writeRaw).toHaveBeenCalledWith(bytes);
     });
 
+    it("can write without scheduling an automatic render", async () => {
+      const term = new WTerm(element, { autoResize: false });
+
+      await term.init();
+      vi.mocked(mockBridge.clearDirty).mockClear();
+      term.write("hello", { scheduleRender: false });
+      await new Promise((resolve) => setTimeout(resolve, 30));
+
+      expect(mockBridge.writeString).toHaveBeenCalledWith("hello");
+      expect(mockBridge.clearDirty).not.toHaveBeenCalled();
+    });
+
+    it("can synchronously render and cancel the scheduled write render", async () => {
+      const term = new WTerm(element, { autoResize: false });
+
+      await term.init();
+      vi.mocked(mockBridge.clearDirty).mockClear();
+      term.write("hello");
+      term.renderNow();
+      await new Promise((resolve) => setTimeout(resolve, 30));
+
+      expect(mockBridge.clearDirty).toHaveBeenCalledTimes(1);
+    });
+
     it("is a no-op before init", () => {
       const term = new WTerm(element);
       term.write("hello");
@@ -341,6 +365,74 @@ describe("WTerm", () => {
       await term.init();
 
       expect(element.classList.contains("has-scrollback")).toBe(false);
+    });
+  });
+
+  describe("render bookkeeping", () => {
+    it("does not repeat scrollback class updates when the state is unchanged", async () => {
+      vi.mocked(mockBridge.getScrollbackCount).mockReturnValue(1);
+      const toggleSpy = vi.spyOn(element.classList, "toggle");
+      const term = new WTerm(element, { autoResize: false });
+
+      await term.init();
+      term.write("hello");
+      await new Promise((resolve) => setTimeout(resolve, 30));
+
+      const hasScrollbackToggles = toggleSpy.mock.calls.filter(
+        ([name]) => name === "has-scrollback",
+      );
+
+      expect(hasScrollbackToggles).toHaveLength(1);
+    });
+
+    it("skips repeated cursor lookups when the cursor anchor has not moved", async () => {
+      const querySelectorSpy = vi.spyOn(Element.prototype, "querySelector");
+      const term = new WTerm(element, { autoResize: false });
+
+      vi.mocked(mockBridge.getCursor).mockReturnValue({
+        col: 0,
+        row: 0,
+        visible: true,
+      });
+
+      await term.init();
+      term.write("one");
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      term.write("two");
+      await new Promise((resolve) => setTimeout(resolve, 30));
+
+      const cursorLookups = querySelectorSpy.mock.calls.filter(
+        ([selector]) => selector === ".term-cursor",
+      );
+
+      expect(cursorLookups).toHaveLength(1);
+    });
+
+    it("updates the input anchor after the cursor moves", async () => {
+      const querySelectorSpy = vi.spyOn(Element.prototype, "querySelector");
+      const term = new WTerm(element, { autoResize: false });
+
+      vi.mocked(mockBridge.getCursor).mockReturnValue({
+        col: 0,
+        row: 0,
+        visible: true,
+      });
+
+      await term.init();
+
+      vi.mocked(mockBridge.getCursor).mockReturnValue({
+        col: 1,
+        row: 0,
+        visible: true,
+      });
+      term.write("hello");
+      await new Promise((resolve) => setTimeout(resolve, 30));
+
+      const cursorLookups = querySelectorSpy.mock.calls.filter(
+        ([selector]) => selector === ".term-cursor",
+      );
+
+      expect(cursorLookups).toHaveLength(2);
     });
   });
 

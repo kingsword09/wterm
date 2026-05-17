@@ -48,6 +48,7 @@ export class InputHandler {
   private onData: (data: string) => void;
   private getBridge: () => TerminalCore | null;
   private composing = false;
+  private imeAnchorState = "";
   private suppressedInputValue = "";
 
   private _onKeyDown: (e: KeyboardEvent) => void;
@@ -129,10 +130,21 @@ export class InputHandler {
     const left = anchorRect.left - rootRect.left + this.element.scrollLeft;
     const top = anchorRect.top - rootRect.top + this.element.scrollTop;
 
-    this.textarea.style.left = `${Math.max(0, Math.round(left))}px`;
-    this.textarea.style.top = `${Math.max(0, Math.round(top))}px`;
-    this.textarea.style.width = `${Math.max(1, Math.ceil(anchorRect.width))}px`;
-    this.textarea.style.height = `${Math.max(1, Math.ceil(anchorRect.height))}px`;
+    const nextLeft = Math.max(0, Math.round(left));
+    const nextTop = Math.max(0, Math.round(top));
+    const nextWidth = Math.max(1, Math.ceil(anchorRect.width));
+    const nextHeight = Math.max(1, Math.ceil(anchorRect.height));
+    const nextState = `${nextLeft},${nextTop},${nextWidth},${nextHeight}`;
+
+    if (this.imeAnchorState === nextState) {
+      return;
+    }
+
+    this.imeAnchorState = nextState;
+    this.textarea.style.left = `${nextLeft}px`;
+    this.textarea.style.top = `${nextTop}px`;
+    this.textarea.style.width = `${nextWidth}px`;
+    this.textarea.style.height = `${nextHeight}px`;
   }
 
   destroy(): void {

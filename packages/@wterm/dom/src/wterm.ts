@@ -25,6 +25,14 @@ export interface WTermOptions {
   onResize?: (cols: number, rows: number) => void;
 }
 
+export interface WTermWriteOptions {
+  scheduleRender?: boolean;
+}
+
+export interface WTermRenderOptions {
+  force?: boolean;
+}
+
 export class WTerm {
   element: HTMLElement;
   cols: number;
@@ -45,6 +53,10 @@ export class WTerm {
   private _shouldScrollToBottom = false;
   private _rowHeight = 0;
   private _onClickFocus: () => void;
+  private _lastCursorAnchorKey = "";
+  private _lastHasScrollback: boolean | null = null;
+  private _lastImeScrollLeft = -1;
+  private _lastImeScrollTop = -1;
 
   onData: ((data: string) => void) | null;
   onTitle: ((title: string) => void) | null;
@@ -146,7 +158,7 @@ export class WTerm {
     el.scrollTop = Math.floor(maxScroll / rh) * rh;
   }
 
-  write(data: string | Uint8Array): void {
+  write(data: string | Uint8Array, options: WTermWriteOptions = {}): void {
     if (!this.bridge) return;
     if (this.debug) this.debug.traceWrite(data);
     this._shouldScrollToBottom = this._isScrolledToBottom();
@@ -155,7 +167,9 @@ export class WTerm {
     } else {
       this.bridge.writeRaw(data);
     }
-    this._scheduleRender();
+    if (options.scheduleRender !== false) {
+      this._scheduleRender();
+    }
   }
 
   resize(cols: number, rows: number): void {
@@ -202,11 +216,28 @@ export class WTerm {
     }, 0);
   }
 
+  private _cancelScheduledRender(): void {
+    if (this._renderTimer != null) {
+      clearTimeout(this._renderTimer);
+      this._renderTimer = null;
+    }
+
+    if (this.rafId != null) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+  }
+
   private _initialRender(): void {
     this._doRender();
   }
 
-  private _doRender(): void {
+  renderNow(options: WTermRenderOptions = {}): void {
+    this._cancelScheduledRender();
+    this._doRender(options);
+  }
+
+  private _doRender(options: WTermRenderOptions = {}): void {
     if (!this.bridge || !this.renderer) return;
 
     let dirtyCount = 0;
@@ -217,14 +248,21 @@ export class WTerm {
       }
     }
 
-    this.renderer.render(this.bridge);
+    (
+      this.renderer as Renderer & {
+        render(core: TerminalCore, options?: WTermRenderOptions): void;
+      }
+    ).render(this.bridge, options);
 
     if (this.debug) {
       this.debug.recordRender(performance.now() - t0, dirtyCount);
     }
 
     const hasScrollback = this.bridge.getScrollbackCount() > 0;
-    this.element.classList.toggle("has-scrollback", hasScrollback);
+    if (this._lastHasScrollback !== hasScrollback) {
+      this.element.classList.toggle("has-scrollback", hasScrollback);
+      this._lastHasScrollback = hasScrollback;
+    }
 
     if (this._shouldScrollToBottom) {
       this._scrollToBottom();
@@ -232,9 +270,21 @@ export class WTerm {
       this.element.scrollTop = 0;
     }
 
-    this.input?.setImeAnchor(
-      this._container.querySelector<HTMLElement>(".term-cursor"),
-    );
+    const cursor = this.bridge.getCursor();
+    const cursorAnchorKey = `${cursor.row},${cursor.col},${cursor.visible ? 1 : 0}`;
+    if (
+      this.input &&
+      (this._lastCursorAnchorKey !== cursorAnchorKey ||
+        this._lastImeScrollLeft !== this.element.scrollLeft ||
+        this._lastImeScrollTop !== this.element.scrollTop)
+    ) {
+      this.input.setImeAnchor(
+        this._container.querySelector<HTMLElement>(".term-cursor"),
+      );
+      this._lastCursorAnchorKey = cursorAnchorKey;
+      this._lastImeScrollLeft = this.element.scrollLeft;
+      this._lastImeScrollTop = this.element.scrollTop;
+    }
 
     const title = this.bridge.getTitle();
     if (title !== null && this.onTitle) {

@@ -3,6 +3,11 @@ export type { WTermOptions } from "./wterm.js";
 export { Renderer } from "./renderer.js";
 export { InputHandler } from "./input.js";
 export { DebugAdapter } from "./debug.js";
+export {
+  clearTerminalSelection,
+  getTerminalSelectionText,
+  hasTerminalSelection,
+} from "./selection.js";
 export type {
   TraceEntry,
   CellInfo,

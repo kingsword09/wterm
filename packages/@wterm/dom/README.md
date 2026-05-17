@@ -62,6 +62,9 @@ new WTerm(element: HTMLElement, options?: WTermOptions)
 | `write(data: string \| Uint8Array)` | Write data to the terminal |
 | `resize(cols, rows)` | Resize the terminal grid |
 | `focus()` | Focus the terminal element |
+| `getSelectionText()` | Return the current terminal-owned browser selection, with row-end padding trimmed |
+| `hasSelection()` | Check whether the active browser selection belongs to the terminal |
+| `clearSelection()` | Clear the active terminal-owned browser selection |
 | `destroy()` | Clean up event listeners and DOM |
 
 ### `WebSocketTransport`

@@ -75,7 +75,14 @@ describe("Renderer", () => {
     });
 
     it("skips wide-character spacer cells", () => {
-      const grid = [[makeWideCell("提"), makeSpacerCell(), makeWideCell("交"), makeSpacerCell()]];
+      const grid = [
+        [
+          makeWideCell("提"),
+          makeSpacerCell(),
+          makeWideCell("交"),
+          makeSpacerCell(),
+        ],
+      ];
       const bridge = createMockBridge(4, 1, grid);
       const renderer = new Renderer(container);
       renderer.render(bridge as any);

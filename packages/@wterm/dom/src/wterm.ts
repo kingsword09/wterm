@@ -2,6 +2,11 @@ import { WasmBridge, type TerminalCore } from "@wterm/core";
 import { Renderer } from "./renderer.js";
 import { InputHandler } from "./input.js";
 import { DebugAdapter } from "./debug.js";
+import {
+  clearTerminalSelection,
+  getTerminalSelectionText,
+  hasTerminalSelection,
+} from "./selection.js";
 
 export interface WTermOptions {
   cols?: number;
@@ -170,6 +175,18 @@ export class WTerm {
     } else {
       this.element.focus();
     }
+  }
+
+  getSelectionText(): string {
+    return getTerminalSelectionText(this.element);
+  }
+
+  hasSelection(): boolean {
+    return hasTerminalSelection(this.element);
+  }
+
+  clearSelection(): void {
+    clearTerminalSelection(this.element);
   }
 
   private _scheduleRender(): void {

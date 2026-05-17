@@ -199,6 +199,18 @@ Instance methods on the vanilla `WTerm` class:
       <td>Focus the terminal input</td>
     </tr>
     <tr>
+      <td><code>getSelectionText()</code></td>
+      <td>Return the current terminal-owned browser selection, with row-end padding trimmed.</td>
+    </tr>
+    <tr>
+      <td><code>hasSelection()</code></td>
+      <td>Check whether the active browser selection belongs to the terminal.</td>
+    </tr>
+    <tr>
+      <td><code>clearSelection()</code></td>
+      <td>Clear the active terminal-owned browser selection.</td>
+    </tr>
+    <tr>
       <td><code>destroy()</code></td>
       <td>Clean up event listeners, observers, and DOM</td>
     </tr>

@@ -230,6 +230,28 @@ describe("WTerm", () => {
     });
   });
 
+  describe("selection API", () => {
+    it("exposes terminal selection text helpers", () => {
+      const term = new WTerm(element);
+      const text = document.createElement("span");
+      const selection = document.getSelection();
+      const range = document.createRange();
+
+      text.textContent = "selected";
+      element.appendChild(text);
+      range.selectNodeContents(text);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+
+      expect(term.hasSelection()).toBe(true);
+      expect(term.getSelectionText()).toBe("selected");
+
+      term.clearSelection();
+
+      expect(term.hasSelection()).toBe(false);
+    });
+  });
+
   describe("onData echo fallback", () => {
     it("echoes input back via write when onData is null", async () => {
       const term = new WTerm(element, { autoResize: false });

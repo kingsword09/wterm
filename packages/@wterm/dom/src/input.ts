@@ -1,4 +1,5 @@
 import type { TerminalCore } from "@wterm/core";
+import { hasTerminalSelection } from "./selection.js";
 
 const NORMAL_KEYS: Record<string, string> = {
   ArrowUp: "\x1b[A",
@@ -156,8 +157,7 @@ export class InputHandler {
     if (this.composing || isCompositionKeyDown(e)) return;
 
     if ((e.metaKey || e.ctrlKey) && e.key === "c") {
-      const sel = window.getSelection();
-      if (sel && sel.toString().length > 0) return;
+      if (hasTerminalSelection(this.element)) return;
     }
     if ((e.metaKey || e.ctrlKey) && e.key === "v") {
       this.textarea.focus();

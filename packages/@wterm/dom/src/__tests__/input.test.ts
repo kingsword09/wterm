@@ -191,6 +191,41 @@ describe("InputHandler", () => {
       expect(received).toContain("\x03");
     });
 
+    it("lets the browser copy terminal-owned selections", () => {
+      const selected = document.createElement("span");
+      const selection = document.getSelection();
+      const range = document.createRange();
+
+      selected.textContent = "selected";
+      container.appendChild(selected);
+      range.selectNodeContents(selected);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+
+      const ta = getTextarea();
+      ta.dispatchEvent(createKeyboardEvent("c", { ctrlKey: true }));
+
+      expect(received).not.toContain("\x03");
+    });
+
+    it("sends Ctrl+C when the active selection is outside the terminal", () => {
+      const outside = document.createElement("span");
+      const selection = document.getSelection();
+      const range = document.createRange();
+
+      outside.textContent = "outside";
+      document.body.appendChild(outside);
+      range.selectNodeContents(outside);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+
+      const ta = getTextarea();
+      ta.dispatchEvent(createKeyboardEvent("c", { ctrlKey: true }));
+
+      expect(received).toContain("\x03");
+      outside.remove();
+    });
+
     it("maps Ctrl+Z to SUB", () => {
       const ta = getTextarea();
       ta.dispatchEvent(createKeyboardEvent("z", { ctrlKey: true }));
@@ -247,7 +282,9 @@ describe("InputHandler", () => {
     it("suppresses IME preedit text and sends only the committed composition", () => {
       const ta = getTextarea();
 
-      ta.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
+      ta.dispatchEvent(
+        new CompositionEvent("compositionstart", { bubbles: true }),
+      );
       ta.value = "t";
       ta.dispatchEvent(
         new InputEvent("input", {

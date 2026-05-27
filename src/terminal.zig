@@ -189,7 +189,7 @@ pub const Terminal = struct {
                     if (cols < old_cols) {
                         self.sanitizeWideCellsInRowLimit(r, cols, self.blankCell());
                     }
-                    self.scrollback.?.push(&self.grid.cells[r], if (cols < old_cols) cols else old_cols);
+                    self.scrollback.?.push(&self.grid.cells[r], if (cols < old_cols) cols else old_cols, self.grid.row_wrapped[r]);
                 }
             }
         }
@@ -255,6 +255,7 @@ pub const Terminal = struct {
         if (cell_width == 2 and self.cols < 2) return;
 
         if (self.wrap_pending) {
+            self.grid.row_wrapped[self.cursor_row] = true;
             self.cursor_col = 0;
             self.doLinefeed();
             self.wrap_pending = false;
@@ -262,6 +263,7 @@ pub const Terminal = struct {
 
         if (cell_width == 2 and self.cursor_col == self.cols - 1) {
             if (self.auto_wrap) {
+                self.grid.row_wrapped[self.cursor_row] = true;
                 self.cursor_col = 0;
                 self.doLinefeed();
             } else {
@@ -439,7 +441,7 @@ pub const Terminal = struct {
         if (self.cursor_row + 1 >= self.scroll_bottom) {
             if (!self.using_alt_screen and self.scroll_top == 0) {
                 if (self.scrollback) |sb| {
-                    sb.push(&self.grid.cells[self.scroll_top], self.cols);
+                    sb.push(&self.grid.cells[self.scroll_top], self.cols, self.grid.row_wrapped[self.scroll_top]);
                 }
             }
             self.grid.scrollUp(self.scroll_top, self.scroll_bottom, 1, self.blankCell());
@@ -846,7 +848,7 @@ pub const Terminal = struct {
             if (self.scrollback) |sb| {
                 var i: u16 = 0;
                 while (i < count and i < self.scroll_bottom - self.scroll_top) : (i += 1) {
-                    sb.push(&self.grid.cells[self.scroll_top + i], self.cols);
+                    sb.push(&self.grid.cells[self.scroll_top + i], self.cols, self.grid.row_wrapped[self.scroll_top + i]);
                 }
             }
         }
@@ -1098,6 +1100,16 @@ test "wide characters wrap before the final column" {
     try testing.expectEqual(@as(u16, 2), t.cursor_col);
 }
 
+test "wide characters wrapping before the final column mark the source row wrapped" {
+    const testing = @import("std").testing;
+    var t = Terminal.init(3, 3);
+
+    t.write("AB你");
+
+    try testing.expectEqual(true, t.grid.row_wrapped[0]);
+    try testing.expectEqual(false, t.grid.row_wrapped[1]);
+}
+
 test "wide characters at the line end leave wrap pending on the final column" {
     const testing = @import("std").testing;
     var t = Terminal.init(3, 3);
@@ -1154,6 +1166,18 @@ test "erase expands partial wide character ranges" {
     try testing.expectEqual(cell_mod.WIDTH_NARROW, t.grid.getCell(0, 1).width);
     try testing.expectEqual(@as(u32, ' '), t.grid.getCell(0, 2).char);
     try testing.expectEqual(@as(u32, ' '), t.grid.getCell(0, 3).char);
+}
+
+test "erase to line end clears wrapped metadata" {
+    const testing = @import("std").testing;
+    var t = Terminal.init(3, 3);
+
+    t.write("ABCD");
+    try testing.expectEqual(true, t.grid.row_wrapped[0]);
+
+    t.write("\x1b[1;2H\x1b[K");
+
+    try testing.expectEqual(false, t.grid.row_wrapped[0]);
 }
 
 test "delete and insert sanitize orphan wide cells" {

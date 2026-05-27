@@ -28,6 +28,8 @@ interface WasmExports {
   getScrollbackCount(): number;
   getScrollbackLine(offset: number): number;
   getScrollbackLineLen(offset: number): number;
+  getScrollbackLineWrapped(offset: number): number;
+  getRowWrapped(row: number): number;
   getResponsePtr(): number;
   getResponseLen(): number;
   clearResponse(): void;
@@ -194,6 +196,14 @@ export class WasmBridge implements TerminalCore {
 
   getScrollbackLineLen(offset: number): number {
     return this.exports.getScrollbackLineLen(offset);
+  }
+
+  getScrollbackLineWrapped(offset: number): boolean {
+    return this.exports.getScrollbackLineWrapped(offset) !== 0;
+  }
+
+  getRowWrapped(row: number): boolean {
+    return this.exports.getRowWrapped(row) !== 0;
   }
 
   getUnhandledSequences(): UnhandledSequence[] {

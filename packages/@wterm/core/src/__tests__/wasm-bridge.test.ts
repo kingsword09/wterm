@@ -78,6 +78,14 @@ describe("WasmBridge", () => {
       expect(bridge.getCell(1, 1).width).toBe(0);
     });
 
+    it("marks rows wrapped when a wide character wraps before the final column", () => {
+      bridge.resize(3, 3);
+      bridge.writeString("AB你");
+
+      expect(bridge.getRowWrapped(0)).toBe(true);
+      expect(bridge.getRowWrapped(1)).toBe(false);
+    });
+
     it("writes to correct position after cursor movement", () => {
       bridge.writeString("AB\r\nCD");
       expect(bridge.getCell(0, 0).char).toBe(65); // 'A'
@@ -239,6 +247,24 @@ describe("WasmBridge", () => {
         const len = bridge.getScrollbackLineLen(0);
         expect(len).toBeGreaterThan(0);
       }
+    });
+
+    it("reports wrapped scrollback lines", () => {
+      bridge.init(5, 1);
+      bridge.writeString("123456");
+
+      expect(bridge.getScrollbackCount()).toBe(1);
+      expect(bridge.getScrollbackLineWrapped(0)).toBe(true);
+    });
+
+    it("clears row wrapped state when erasing to the line end", () => {
+      bridge.resize(3, 3);
+      bridge.writeString("ABCD");
+      expect(bridge.getRowWrapped(0)).toBe(true);
+
+      bridge.writeString("\x1b[1;2H\x1b[K");
+
+      expect(bridge.getRowWrapped(0)).toBe(false);
     });
   });
 });

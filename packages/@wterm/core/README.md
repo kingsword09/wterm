@@ -69,6 +69,8 @@ const cursor = bridge.getCursor();  // { row, col, visible }
 | `getScrollbackCount()` | Number of lines in the scrollback buffer |
 | `getScrollbackCell(offset, col)` | Get cell data from scrollback |
 | `getScrollbackLineLen(offset)` | Get length of a scrollback line |
+| `getScrollbackLineWrapped(offset)` | Check whether a scrollback line soft-wraps into the following line |
+| `getRowWrapped(row)` | Check whether a visible grid row soft-wraps into the following row |
 | `cursorKeysApp()` | Whether cursor keys are in application mode |
 | `bracketedPaste()` | Whether bracketed paste mode is active |
 | `usingAltScreen()` | Whether the alternate screen buffer is active |

@@ -387,6 +387,10 @@ export class Renderer {
   ): HTMLDivElement {
     const rowEl = document.createElement("div");
     rowEl.className = "term-row term-scrollback-row";
+    this._setRowWrapped(
+      rowEl,
+      core.getScrollbackLineWrapped?.(sbOffset) ?? false,
+    );
     const lineLen = core.getScrollbackLineLen(sbOffset);
 
     this._buildRowContent(
@@ -449,6 +453,7 @@ export class Renderer {
       const isDirty = resized || core.isDirtyRow(r);
       const hadCursor = r === this.prevCursorRow && needsCursorUpdate;
       const hasCursor = r === cursor.row;
+      this._setRowWrapped(this.rowEls[r], core.getRowWrapped?.(r) ?? false);
 
       if (isDirty || hadCursor || (hasCursor && needsCursorUpdate)) {
         const cCol = hasCursor && cursorVisible ? cursor.col : -1;
@@ -484,5 +489,13 @@ export class Renderer {
     }
 
     core.clearDirty();
+  }
+
+  private _setRowWrapped(rowEl: HTMLDivElement, wrapped: boolean): void {
+    if (wrapped) {
+      rowEl.dataset.wrapped = "true";
+    } else {
+      delete rowEl.dataset.wrapped;
+    }
   }
 }

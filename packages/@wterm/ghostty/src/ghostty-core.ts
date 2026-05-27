@@ -286,6 +286,14 @@ export class GhosttyCore implements TerminalCore {
     return len;
   }
 
+  getScrollbackLineWrapped(_offset: number): boolean {
+    return false;
+  }
+
+  getRowWrapped(_row: number): boolean {
+    return false;
+  }
+
   // -- Debug --
 
   getUnhandledSequences(): UnhandledSequence[] {

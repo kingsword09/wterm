@@ -8,6 +8,7 @@ pub const Grid = struct {
     cols: u16,
     rows: u16,
     dirty: [MAX_ROWS]u8 = [_]u8{1} ** MAX_ROWS,
+    row_wrapped: [MAX_ROWS]bool = [_]bool{false} ** MAX_ROWS,
 
     pub fn init(cols: u16, rows: u16) Grid {
         var g = Grid{ .cols = cols, .rows = rows };
@@ -51,6 +52,7 @@ pub const Grid = struct {
             self.cells[row][c] = blank;
         }
         self.dirty[row] = 1;
+        self.row_wrapped[row] = false;
     }
 
     pub fn clearRange(self: *Grid, row: u16, start_col: u16, end_col: u16) void {
@@ -65,6 +67,9 @@ pub const Grid = struct {
             self.cells[row][c] = blank;
         }
         self.dirty[row] = 1;
+        if (end == self.cols) {
+            self.row_wrapped[row] = false;
+        }
     }
 
     pub fn scrollUp(self: *Grid, top: u16, bottom: u16, count: u16, blank: Cell) void {
@@ -74,6 +79,7 @@ pub const Grid = struct {
         var row = top;
         while (row + n < bottom) : (row += 1) {
             self.cells[row] = self.cells[row + n];
+            self.row_wrapped[row] = self.row_wrapped[row + n];
             self.dirty[row] = 1;
         }
         while (row < bottom) : (row += 1) {
@@ -91,6 +97,7 @@ pub const Grid = struct {
             const dst = bottom - 1 - i;
             const src = dst - n;
             self.cells[dst] = self.cells[src];
+            self.row_wrapped[dst] = self.row_wrapped[src];
             self.dirty[dst] = 1;
         }
         var row = top;

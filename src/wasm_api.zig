@@ -130,6 +130,19 @@ export fn getScrollbackLineLen(offset: u32) u32 {
     return 0;
 }
 
+export fn getScrollbackLineWrapped(offset: u32) u32 {
+    const line = scrollback.getLine(offset);
+    if (line) |l| {
+        return if (l.wrapped) @as(u32, 1) else @as(u32, 0);
+    }
+    return 0;
+}
+
+export fn getRowWrapped(row: u32) u32 {
+    if (row >= terminal.rows) return 0;
+    return if (terminal.grid.row_wrapped[@intCast(row)]) @as(u32, 1) else @as(u32, 0);
+}
+
 // -- Response buffer (for DSR replies) --
 
 export fn getResponsePtr() [*]const u8 {

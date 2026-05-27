@@ -65,6 +65,8 @@ export interface TerminalCore {
   getScrollbackCount(): number;
   getScrollbackCell(offset: number, col: number): CellData;
   getScrollbackLineLen(offset: number): number;
+  getScrollbackLineWrapped?(offset: number): boolean;
+  getRowWrapped?(row: number): boolean;
 
   // -- Debug --
   getUnhandledSequences(): UnhandledSequence[];

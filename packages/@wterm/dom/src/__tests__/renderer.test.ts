@@ -22,6 +22,8 @@ function createMockBridge(cols: number, rows: number, grid: CellData[][] = []) {
       flags: 0,
     }),
     getScrollbackLineLen: () => 0,
+    getScrollbackLineWrapped: () => false,
+    getRowWrapped: () => false,
   };
 }
 
@@ -157,6 +159,19 @@ describe("Renderer", () => {
 
       const span = container.querySelector("span[style]");
       expect(span?.getAttribute("style")).toMatch(/font-weight:\s*bold/);
+    });
+
+    it("marks wrapped rows for selection", () => {
+      const grid = [[makeCell("A")], [makeCell("B")]];
+      const bridge = createMockBridge(1, 2, grid);
+      bridge.getRowWrapped = (row: number) => row === 0;
+      const renderer = new Renderer(container);
+
+      renderer.render(bridge as any);
+
+      const rows = container.querySelectorAll<HTMLElement>(".term-row");
+      expect(rows[0].dataset.wrapped).toBe("true");
+      expect(rows[1].dataset.wrapped).toBeUndefined();
     });
   });
 });

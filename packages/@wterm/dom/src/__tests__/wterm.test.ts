@@ -16,6 +16,8 @@ function createMockBridge(): WasmBridge {
     getScrollbackCount: vi.fn(() => 0),
     getScrollbackCell: vi.fn(() => ({ char: 0, fg: 256, bg: 256, flags: 0 })),
     getScrollbackLineLen: vi.fn(() => 0),
+    getScrollbackLineWrapped: vi.fn(() => false),
+    getRowWrapped: vi.fn(() => false),
     getTitle: vi.fn(() => null),
     getResponse: vi.fn(() => null),
     cursorKeysApp: vi.fn(() => false),

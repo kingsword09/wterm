@@ -62,21 +62,32 @@ function extractTerminalRowSelectionText(
     return null;
   }
 
-  const lines: string[] = [];
+  let text = "";
+  let hasText = false;
+  let previousRowIndex = -1;
+  let previousRowWrapped = false;
 
   for (let rangeIndex = 0; rangeIndex < selection.rangeCount; rangeIndex += 1) {
     const range = selection.getRangeAt(rangeIndex);
 
-    for (const row of rows) {
+    for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+      const row = rows[rowIndex];
       if (!rangeIntersectsNode(range, row)) {
         continue;
       }
 
-      lines.push(extractRowSelectionText(row, range));
+      if (hasText) {
+        text +=
+          previousRowWrapped && rowIndex === previousRowIndex + 1 ? "" : "\n";
+      }
+      text += extractRowSelectionText(row, range);
+      hasText = true;
+      previousRowIndex = rowIndex;
+      previousRowWrapped = row.dataset.wrapped === "true";
     }
   }
 
-  return lines.length > 0 ? lines.join("\n") : null;
+  return hasText ? text : null;
 }
 
 export function getTerminalSelectionText(element: HTMLElement): string {

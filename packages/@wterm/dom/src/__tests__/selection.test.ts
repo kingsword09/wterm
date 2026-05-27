@@ -33,6 +33,17 @@ describe("terminal selection helpers", () => {
     expect(getTerminalSelectionText(terminal)).toBe("hello\nworld");
   });
 
+  it("joins soft-wrapped terminal rows without adding a newline", () => {
+    const terminal = document.createElement("div");
+    terminal.innerHTML =
+      '<div class="term-row" data-wrapped="true">hello</div><div class="term-row">world</div>';
+    document.body.appendChild(terminal);
+
+    selectNodeContents(terminal);
+
+    expect(getTerminalSelectionText(terminal)).toBe("helloworld");
+  });
+
   it("ignores selections outside the terminal", () => {
     const terminal = document.createElement("div");
     const outside = document.createElement("div");

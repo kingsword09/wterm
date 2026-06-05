@@ -189,7 +189,7 @@ pub const Terminal = struct {
                     if (cols < old_cols) {
                         self.sanitizeWideCellsInRowLimit(r, cols, self.blankCell());
                     }
-                    self.scrollback.?.push(&self.grid.cells[r], if (cols < old_cols) cols else old_cols, self.grid.row_wrapped[r]);
+                    self.scrollback.?.push(&self.grid.cells[r], old_cols, self.grid.row_wrapped[r]);
                 }
             }
         }
@@ -1317,4 +1317,25 @@ test "scrollback" {
     const line0 = sb.getLine(0).?;
     try testing.expectEqual(@as(u32, 'L'), line0.cells[0].char);
     try testing.expectEqual(@as(u32, '2'), line0.cells[1].char);
+}
+
+test "resize preserves full old-width row content in scrollback" {
+    const testing = @import("std").testing;
+    const sb = try testing.allocator.create(Scrollback);
+    defer testing.allocator.destroy(sb);
+    sb.* = .{};
+
+    var t = Terminal.init(80, 24);
+    t.scrollback = sb;
+
+    const url = "https://github.com/openai/codex/releases/latest";
+    t.write("\x1b[24;1H");
+    t.write(url);
+    t.resize(41, 10);
+
+    const line0 = sb.getLine(0).?;
+    try testing.expectEqual(@as(u16, @intCast(url.len)), line0.len);
+    try testing.expectEqual(@as(u32, 'h'), line0.cells[0].char);
+    try testing.expectEqual(@as(u32, 'l'), line0.cells[41].char);
+    try testing.expectEqual(@as(u32, 't'), line0.cells[url.len - 1].char);
 }

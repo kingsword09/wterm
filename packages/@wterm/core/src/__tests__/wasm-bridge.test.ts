@@ -249,6 +249,20 @@ describe("WasmBridge", () => {
       }
     });
 
+    it("reports old-width content length when resizing rows into scrollback", () => {
+      const url = "https://github.com/openai/codex/releases/latest";
+      bridge.writeString(`\x1b[24;1H${url}`);
+      bridge.resize(41, 10);
+
+      expect(bridge.getScrollbackCount()).toBeGreaterThan(0);
+      expect(bridge.getScrollbackLineLen(0)).toBe(url.length);
+      expect(bridge.getScrollbackCell(0, 0).char).toBe("h".charCodeAt(0));
+      expect(bridge.getScrollbackCell(0, 41).char).toBe("l".charCodeAt(0));
+      expect(bridge.getScrollbackCell(0, url.length - 1).char).toBe(
+        "t".charCodeAt(0),
+      );
+    });
+
     it("reports wrapped scrollback lines", () => {
       bridge.init(5, 1);
       bridge.writeString("123456");

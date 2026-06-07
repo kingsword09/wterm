@@ -500,6 +500,10 @@ When no URL is provided, the ~12 KB WASM binary is decoded from a base64 string 
       <td>Number of lines in the scrollback buffer</td>
     </tr>
     <tr>
+      <td><code>getScrollbackGeneration(): number</code></td>
+      <td>Monotonic scrollback content version for renderer cache invalidation</td>
+    </tr>
+    <tr>
       <td><code>getScrollbackCell(offset, col): CellData</code></td>
       <td>Get cell data from a scrollback line</td>
     </tr>

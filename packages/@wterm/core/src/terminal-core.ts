@@ -63,6 +63,12 @@ export interface TerminalCore {
 
   // -- Scrollback --
   getScrollbackCount(): number;
+  /**
+   * Monotonic version for scrollback content changes. Implementations should
+   * increment it when scrollback rows are appended, dropped, or reset. Live grid
+   * changes that do not affect scrollback should not increment it.
+   */
+  getScrollbackGeneration?(): number;
   getScrollbackCell(offset: number, col: number): CellData;
   getScrollbackLineLen(offset: number): number;
   getScrollbackLineWrapped?(offset: number): boolean;

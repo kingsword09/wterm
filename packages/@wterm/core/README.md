@@ -67,6 +67,7 @@ const cursor = bridge.getCursor();  // { row, col, visible }
 | `getTitle()` | Get pending title change (or `null`) |
 | `getResponse()` | Get pending host response (or `null`) |
 | `getScrollbackCount()` | Number of lines in the scrollback buffer |
+| `getScrollbackGeneration()` | Monotonic scrollback content version for renderer cache invalidation |
 | `getScrollbackCell(offset, col)` | Get cell data from scrollback |
 | `getScrollbackLineLen(offset)` | Get length of a scrollback line |
 | `getScrollbackLineWrapped(offset)` | Check whether a scrollback line soft-wraps into the following line |

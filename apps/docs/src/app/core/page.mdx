@@ -55,6 +55,11 @@ const cursor = bridge.getCursor();
 CJK/fullwidth characters, `0` is its spacer cell, and `1` is a normal cell.
 Custom renderers should skip spacer cells and advance by the reported width.
 
+`getScrollbackGeneration()` returns a monotonically increasing version for
+scrollback content changes. Use it with `getScrollbackCount()` when caching
+expensive scrollback projections: live grid updates do not change the
+generation, but appended, dropped, or reset scrollback rows do.
+
 ## WebSocketTransport
 
 Connect to a PTY backend over WebSocket with automatic reconnection and send buffering.

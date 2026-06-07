@@ -112,6 +112,10 @@ export fn getScrollbackCount() u32 {
     return scrollback.count;
 }
 
+export fn getScrollbackGeneration() u32 {
+    return scrollback.generation;
+}
+
 var scrollback_line_buf: [grid_mod.MAX_COLS * cell_mod.Cell.BYTE_SIZE]u8 = undefined;
 
 export fn getScrollbackLine(offset: u32) [*]const u8 {

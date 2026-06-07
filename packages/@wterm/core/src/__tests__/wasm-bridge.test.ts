@@ -220,6 +220,35 @@ describe("WasmBridge", () => {
       expect(bridge.getScrollbackCount()).toBe(0);
     });
 
+    it("tracks scrollback generation separately from live grid updates", () => {
+      const initialGeneration = bridge.getScrollbackGeneration();
+
+      bridge.writeString("live only");
+
+      expect(bridge.getScrollbackCount()).toBe(0);
+      expect(bridge.getScrollbackGeneration()).toBe(initialGeneration);
+
+      for (let i = 0; i < 30; i++) {
+        bridge.writeString(`line ${i}\r\n`);
+      }
+
+      expect(bridge.getScrollbackCount()).toBeGreaterThan(0);
+      expect(bridge.getScrollbackGeneration()).not.toBe(initialGeneration);
+    });
+
+    it("changes scrollback generation when scrollback is reset", () => {
+      for (let i = 0; i < 30; i++) {
+        bridge.writeString(`line ${i}\r\n`);
+      }
+
+      const generationWithScrollback = bridge.getScrollbackGeneration();
+
+      bridge.writeString("\x1b[3J");
+
+      expect(bridge.getScrollbackCount()).toBe(0);
+      expect(bridge.getScrollbackGeneration()).not.toBe(generationWithScrollback);
+    });
+
     it("accumulates scrollback when content overflows", () => {
       for (let i = 0; i < 30; i++) {
         bridge.writeString(`line ${i}\r\n`);

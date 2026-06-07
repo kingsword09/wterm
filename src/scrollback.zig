@@ -13,12 +13,17 @@ pub const ScrollbackLine = struct {
 pub const Scrollback = struct {
     lines: [MAX_SCROLLBACK_LINES]ScrollbackLine = undefined,
     count: u32 = 0,
+    generation: u32 = 0,
     write_pos: u32 = 0,
 
     /// Reset counters without touching the lines array (avoids large stack copies).
     pub fn reset(self: *Scrollback) void {
+        const had_content = self.count != 0 or self.write_pos != 0;
         self.count = 0;
         self.write_pos = 0;
+        if (had_content) {
+            self.bumpGeneration();
+        }
     }
 
     pub fn push(self: *Scrollback, row: []const Cell, scan_len: u16, wrapped: bool) void {
@@ -35,6 +40,11 @@ pub const Scrollback = struct {
         if (self.count < MAX_SCROLLBACK_LINES) {
             self.count += 1;
         }
+        self.bumpGeneration();
+    }
+
+    fn bumpGeneration(self: *Scrollback) void {
+        self.generation +%= 1;
     }
 
     fn measureLineLen(row: []const Cell, scan_len: u16) u16 {
@@ -84,6 +94,7 @@ test "scrollback stores content width instead of scanned width" {
     const testing = @import("std").testing;
     var sb = Scrollback{};
     var row = [_]Cell{.{}} ** grid_mod.MAX_COLS;
+    const generation = sb.generation;
 
     row[4] = Cell{ .char = 'A' };
     row[9] = Cell{ .char = ' ' };
@@ -93,6 +104,7 @@ test "scrollback stores content width instead of scanned width" {
     const line = sb.getLine(0).?;
     try testing.expectEqual(@as(u16, 5), line.len);
     try testing.expectEqual(@as(u32, 'A'), line.cells[4].char);
+    try testing.expect(sb.generation != generation);
 }
 
 test "scrollback preserves styled blanks and wide cells" {
@@ -111,4 +123,22 @@ test "scrollback preserves styled blanks and wide cells" {
     try testing.expectEqual(@as(u32, '你'), line.cells[2].char);
     try testing.expectEqual(cell_mod.WIDTH_SPACER, line.cells[3].width);
     try testing.expectEqual(@as(u16, 1), line.cells[7].bg);
+}
+
+test "scrollback generation changes on reset after content" {
+    const testing = @import("std").testing;
+    var sb = Scrollback{};
+    var row = [_]Cell{.{}} ** grid_mod.MAX_COLS;
+
+    sb.reset();
+    try testing.expectEqual(@as(u32, 0), sb.generation);
+
+    row[0] = Cell{ .char = 'A' };
+    sb.push(&row, 1, false);
+    const after_push = sb.generation;
+
+    sb.reset();
+
+    try testing.expectEqual(@as(u32, 0), sb.count);
+    try testing.expect(sb.generation != after_push);
 }

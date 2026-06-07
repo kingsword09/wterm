@@ -137,6 +137,34 @@ describe("WasmBridge", () => {
       bridge.clearDirty();
       expect(bridge.isDirtyRow(0)).toBe(false);
     });
+
+    it("tracks live row generation independently from dirty clearing", () => {
+      const initialGeneration = bridge.getRowGeneration(0);
+
+      bridge.writeString("text");
+
+      const writtenGeneration = bridge.getRowGeneration(0);
+
+      expect(Number.isFinite(initialGeneration)).toBe(true);
+      expect(writtenGeneration).not.toBe(initialGeneration);
+
+      bridge.clearDirty();
+
+      expect(bridge.isDirtyRow(0)).toBe(false);
+      expect(bridge.getRowGeneration(0)).toBe(writtenGeneration);
+    });
+
+    it("changes row generation when rows scroll", () => {
+      bridge.resize(80, 3);
+      bridge.writeString("row 0\r\nrow 1\r\nrow 2");
+      bridge.clearDirty();
+
+      const topGeneration = bridge.getRowGeneration(0);
+
+      bridge.writeString("\r\nrow 3");
+
+      expect(bridge.getRowGeneration(0)).not.toBe(topGeneration);
+    });
   });
 
   describe("resize", () => {

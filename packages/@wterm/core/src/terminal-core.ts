@@ -44,6 +44,12 @@ export interface TerminalCore {
 
   // -- Grid --
   getCell(row: number, col: number): CellData;
+  /**
+   * Monotonic version for a live grid row. Implementations should increment it
+   * whenever the row's visible cell content or row metadata changes. Clearing
+   * dirty flags after render should not increment it.
+   */
+  getRowGeneration?(row: number): number;
   isDirtyRow(row: number): boolean;
   clearDirty(): void;
   getCols(): number;

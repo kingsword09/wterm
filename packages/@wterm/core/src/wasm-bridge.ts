@@ -13,6 +13,7 @@ interface WasmExports {
   writeBytes(len: number): void;
   getGridPtr(): number;
   getDirtyPtr(): number;
+  getRowGeneration?(row: number): number;
   clearDirty(): void;
   getCursorRow(): number;
   getCursorCol(): number;
@@ -125,6 +126,10 @@ export class WasmBridge implements TerminalCore {
       flags: dv.getUint8(offset + 8),
       width: dv.getUint8(offset + 9) as 0 | 1 | 2,
     };
+  }
+
+  getRowGeneration(row: number): number {
+    return this.exports.getRowGeneration?.(row) ?? Number.NaN;
   }
 
   isDirtyRow(row: number): boolean {

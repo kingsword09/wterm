@@ -17,6 +17,8 @@ pub fn build(b: *std.Build) void {
 
     wasm.entry = .disabled;
     wasm.rdynamic = true;
+    wasm.initial_memory = 16 * 1024 * 1024;
+    wasm.stack_size = 4 * 1024 * 1024;
 
     b.installArtifact(wasm);
 

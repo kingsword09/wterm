@@ -54,6 +54,11 @@ export fn clearDirty() void {
     terminal.grid.clearDirty();
 }
 
+export fn getRowGeneration(row: u32) u32 {
+    if (row >= grid_mod.MAX_ROWS) return 0;
+    return terminal.grid.getRowGeneration(@intCast(row));
+}
+
 // -- Terminal state --
 
 export fn getCursorRow() u32 {

@@ -216,7 +216,7 @@ pub const Terminal = struct {
                 while (c < cols) : (c += 1) {
                     self.grid.cells[r2][c] = Cell{};
                 }
-                self.grid.dirty[r2] = 1;
+                self.grid.markDirtyRow(r2);
             }
         }
         self.scroll_top = 0;
@@ -228,7 +228,7 @@ pub const Terminal = struct {
         // Mark all rows dirty so the renderer picks up the changes
         var r: u16 = 0;
         while (r < rows) : (r += 1) {
-            self.grid.dirty[r] = 1;
+            self.grid.markDirtyRow(r);
         }
     }
 
@@ -338,7 +338,7 @@ pub const Terminal = struct {
             if (col > 0 and self.grid.cells[row][col - 1].width == cell_mod.WIDTH_WIDE) {
                 self.grid.cells[row][col - 1] = blank;
             }
-            self.grid.dirty[row] = 1;
+            self.grid.markDirtyRow(row);
             return;
         }
 
@@ -347,7 +347,7 @@ pub const Terminal = struct {
             if (col + 1 < self.cols and self.grid.cells[row][col + 1].width == cell_mod.WIDTH_SPACER) {
                 self.grid.cells[row][col + 1] = blank;
             }
-            self.grid.dirty[row] = 1;
+            self.grid.markDirtyRow(row);
         }
     }
 
@@ -395,10 +395,10 @@ pub const Terminal = struct {
                 }
 
                 self.grid.cells[row][col] = blank;
-                self.grid.dirty[row] = 1;
+                self.grid.markDirtyRow(row);
             } else if (width == cell_mod.WIDTH_SPACER) {
                 self.grid.cells[row][col] = blank;
-                self.grid.dirty[row] = 1;
+                self.grid.markDirtyRow(row);
             }
 
             col += 1;
@@ -624,16 +624,16 @@ pub const Terminal = struct {
 
         if (alt) {
             if (save_cursor) self.saveCursorToAlt();
-            ag.* = self.grid;
+            ag.copyFrom(&self.grid);
             self.grid.reset(self.cols, self.rows);
             self.using_alt_screen = true;
         } else {
-            self.grid = ag.*;
+            self.grid.copyFrom(ag);
             self.using_alt_screen = false;
             if (save_cursor) self.restoreCursorFromAlt();
             var r: u16 = 0;
             while (r < self.rows) : (r += 1) {
-                self.grid.dirty[r] = 1;
+                self.grid.markDirtyRow(r);
             }
         }
         self.scroll_top = 0;
@@ -814,7 +814,7 @@ pub const Terminal = struct {
             self.grid.cells[self.cursor_row][col] = blank;
         }
         self.sanitizeWideCellsInRow(self.cursor_row, blank);
-        self.grid.dirty[self.cursor_row] = 1;
+        self.grid.markDirtyRow(self.cursor_row);
     }
 
     fn insertBlanks(self: *Terminal, n: u16) void {
@@ -839,7 +839,7 @@ pub const Terminal = struct {
             self.grid.cells[self.cursor_row][c] = blank;
         }
         self.sanitizeWideCellsInRow(self.cursor_row, blank);
-        self.grid.dirty[self.cursor_row] = 1;
+        self.grid.markDirtyRow(self.cursor_row);
     }
 
     fn scrollUpN(self: *Terminal, n: u16) void {

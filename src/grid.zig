@@ -8,6 +8,7 @@ pub const Grid = struct {
     cols: u16,
     rows: u16,
     dirty: [MAX_ROWS]u8 = [_]u8{1} ** MAX_ROWS,
+    row_generation: [MAX_ROWS]u32 = [_]u32{0} ** MAX_ROWS,
     row_wrapped: [MAX_ROWS]bool = [_]bool{false} ** MAX_ROWS,
 
     pub fn init(cols: u16, rows: u16) Grid {
@@ -28,10 +29,21 @@ pub const Grid = struct {
         return self.cells[row][col];
     }
 
+    pub fn getRowGeneration(self: *const Grid, row: u16) u32 {
+        if (row >= self.rows) return 0;
+        return self.row_generation[row];
+    }
+
+    pub fn markDirtyRow(self: *Grid, row: u16) void {
+        if (row >= self.rows) return;
+        self.dirty[row] = 1;
+        self.row_generation[row] +%= 1;
+    }
+
     pub fn setCell(self: *Grid, row: u16, col: u16, cell: Cell) void {
         if (row >= self.rows or col >= self.cols) return;
         self.cells[row][col] = cell;
-        self.dirty[row] = 1;
+        self.markDirtyRow(row);
     }
 
     pub fn clear(self: *Grid) void {
@@ -51,7 +63,7 @@ pub const Grid = struct {
         while (c < self.cols) : (c += 1) {
             self.cells[row][c] = blank;
         }
-        self.dirty[row] = 1;
+        self.markDirtyRow(row);
         self.row_wrapped[row] = false;
     }
 
@@ -66,7 +78,7 @@ pub const Grid = struct {
         while (c < end) : (c += 1) {
             self.cells[row][c] = blank;
         }
-        self.dirty[row] = 1;
+        self.markDirtyRow(row);
         if (end == self.cols) {
             self.row_wrapped[row] = false;
         }
@@ -80,7 +92,7 @@ pub const Grid = struct {
         while (row + n < bottom) : (row += 1) {
             self.cells[row] = self.cells[row + n];
             self.row_wrapped[row] = self.row_wrapped[row + n];
-            self.dirty[row] = 1;
+            self.markDirtyRow(row);
         }
         while (row < bottom) : (row += 1) {
             self.clearRowAs(row, blank);
@@ -98,11 +110,24 @@ pub const Grid = struct {
             const src = dst - n;
             self.cells[dst] = self.cells[src];
             self.row_wrapped[dst] = self.row_wrapped[src];
-            self.dirty[dst] = 1;
+            self.markDirtyRow(dst);
         }
         var row = top;
         while (row < top + n) : (row += 1) {
             self.clearRowAs(row, blank);
+        }
+    }
+
+    pub fn copyFrom(self: *Grid, source: *const Grid) void {
+        self.cols = source.cols;
+        self.rows = source.rows;
+
+        var row: u16 = 0;
+        while (row < MAX_ROWS) : (row += 1) {
+            self.cells[row] = source.cells[row];
+            self.dirty[row] = source.dirty[row];
+            self.row_generation[row] = source.row_generation[row];
+            self.row_wrapped[row] = source.row_wrapped[row];
         }
     }
 
